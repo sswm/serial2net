@@ -8,9 +8,12 @@
 #include "md5/md5.h"
 #include <mainwindow.h>
 #include <QDateTime>
-#include <QScrollArea>
+
 
 #include "thread/qSendSerial.h"
+
+#include "frameData/frameData.h"
+
 //发送头初始化
 postLinked   postMsgHead;
 
@@ -19,7 +22,7 @@ extern QSendSerial *sendSerial;
 
 unsigned char needToEmitFlag = 0;
 
-int MainWindow::AddToMsgEnd(char *str, unsigned int timeout) {
+int MainWindow::AddToMsgEnd(char *str, int size, unsigned int timeout) {
 
     linkMutex.lock();
 
@@ -36,7 +39,10 @@ int MainWindow::AddToMsgEnd(char *str, unsigned int timeout) {
 
     }
 
-    strcpy(p->buf, str);
+    p->bufSize = size;
+    p->buf[p->bufSize] = 0;//结束符处理
+    memcpy(p->buf, str, p->bufSize);
+    //strcpy(p->buf, str);
     p->timeout = timeout;
 
     list_add_tail (&p->list, &postMsgHead.list);
@@ -48,7 +54,7 @@ int MainWindow::AddToMsgEnd(char *str, unsigned int timeout) {
     return 0;
 }
 
-int MainWindow::GetFromMsgStart(char *str, int *timeout) {
+int MainWindow::GetFromMsgStart(char *str, int *timeout, int *size) {
 
     linkMutex.lock();
 
@@ -70,8 +76,9 @@ int MainWindow::GetFromMsgStart(char *str, int *timeout) {
 
     }
 
-
-    strcpy(str, p->buf);
+    *size = p->bufSize;
+    memcpy(str, p->buf, p->bufSize + 1);//结束符也拷贝进去
+    //strcpy(str, p->buf);
     *timeout = p->timeout;
 
     list_del(ptr);
@@ -98,18 +105,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-
     ui->setupUi(this);
-
-//    QTabWidget *tabwidget = new QTabWidget;
-//    QScrollArea *scrollArea = new QScrollArea;
-//    //this->resize(900,1050);
-//    scrollArea->setWidget(this);
-//    scrollArea->show();
-
-//    //页的方式显示
-//    tabwidget->addTab(scrollArea,"串口wifi");
-//    tabwidget->show();
 
     //初始化链表
     INIT_LIST_HEAD(&postMsgHead.list);
@@ -186,7 +182,7 @@ MainWindow::MainWindow(QWidget *parent) :
     comStatus = ui->label_comStatus;
 
     serialPort = new ManageSerialPort;
-    connect(serialPort, SIGNAL(newDataReceived(const QByteArray &)), this, SLOT(slot_newDataReceived(const QByteArray &)));
+    connect(serialPort, SIGNAL(newDataReceived(const QByteArray )), this, SLOT(slot_newDataReceived(const QByteArray )));
 
 
 
@@ -273,7 +269,7 @@ MainWindow::MainWindow(QWidget *parent) :
 //串口打开后进行初始化
 void  MainWindow::DeviceInit(void) {
     //重启
-    on_pushButton_restart_clicked();
+    //on_pushButton_restart_clicked();
 
     //设置Ap
     on_pushButton_setAp_clicked();
@@ -283,15 +279,18 @@ void  MainWindow::DeviceInit(void) {
     on_pushButton_setServerTimeout_clicked();
 
     //作为station链接Ap
-    on_pushButton_connectAp_clicked();
+    //on_pushButton_connectAp_clicked();
 
 
     //定时去连接服务器
     //连接服务器
-    on_pushButton_connectDstIp_clicked();
+    // on_pushButton_connectDstIp_clicked();
     //连接服务器
     //on_pushButton_connectDstIp_clicked();
 
+
+    //设置服务器的ip,端口
+    on_pushButton_setServer_clicked();
 
 
 
@@ -583,12 +582,25 @@ void MainWindow::DealAfterSend(QByteArray dataReceived) {
 
     //必须拼接,执行新命令时清除
     int indexNum;
-    otherRecString += QString(dataReceived);
+    otherRecString += dataReceived;
     //其他主动发送数据的情况
     if ((indexNum = otherRecString.trimmed().toLower().indexOf("unlink")) >= 0) {
         ui->label_ipStatus->setStyleSheet("background-color: black");
     }
 
+
+
+//    if (otherRecString.trimmed().toLower().indexOf("+ipd,") >= 0) {
+//       // int indexStart = otherRecString.trimmed().toLower().indexOf(":");
+
+//        //QByteArray rawFrameData = otherRecString.mid(indexStart + 1);
+//        QByteArray rawFrameData = otherRecString;
+//        for (int i = 0; i < rawFrameData.size(); i++) {
+//            qDebug("frame1 data[%d] is 0x%02x  %c", i, 0xff & rawFrameData.at(i), rawFrameData.at(i));
+
+//        }
+
+//    }
 
     if (nowCmd.trimmed().toLower().indexOf("at+rst") >= 0) {
         if (otherRecString.trimmed().toLower().indexOf("\r\nready") >= 0) {
@@ -602,7 +614,7 @@ void MainWindow::DealAfterSend(QByteArray dataReceived) {
 
     }
     //所有可能返回的字符串
-    else if (otherRecString.trimmed().toLower().indexOf("ok") >= 0 ||
+    else if (otherRecString.trimmed().indexOf("OK") >= 0 ||
              otherRecString.trimmed().toLower().indexOf("no change") >= 0 ||
              otherRecString.trimmed().toLower().indexOf("\r\nmux=") >= 0 ||//为0或者1
              otherRecString.trimmed().toLower().indexOf("error") >= 0 ||
@@ -610,30 +622,77 @@ void MainWindow::DealAfterSend(QByteArray dataReceived) {
              otherRecString.trimmed().toLower().indexOf("link is not") >= 0 ||
              otherRecString.trimmed().toLower().indexOf("we must restart") >= 0 ||
              otherRecString.trimmed().toLower().indexOf("link is builded") >= 0 ||
-             otherRecString.trimmed().toLower().indexOf("alreay connect") >= 0
+             otherRecString.trimmed().toLower().indexOf("alreay connect") >= 0  ||
+             otherRecString.trimmed().toLower().indexOf("\r\n>") >= 0
              ) {
+        /*
+        //接受帧处理+IPD
+        if ((otherRecString.trimmed().toLower().indexOf("+ipd,") >= 0) && (otherRecString.trimmed().indexOf("OK") >= 0)) {
+            qDebug() << "get data here";
+            //+IPD,0,14:send to server
+            //OK
+            int indexStart = otherRecString.trimmed().indexOf(":");
+            int indexEnd = otherRecString.trimmed().indexOf("\r\nOK");//:s\r\n    9 10 11    11 - 9 - 1 = 1
+            QByteArray rawFrameData = otherRecString.mid(indexStart + 1, indexEnd - indexStart - 1);
+            for (int i = 0; i < rawFrameData.size(); i++) {
+                qDebug("frame data[%d] is 0x%02x  %c", i, 0xff & rawFrameData.at(i), rawFrameData.at(i));
 
+            }
+            char frameTmp[256] = {0};
+            memcpy(frameTmp, rawFrameData.data(), rawFrameData.size());
+            frameData frameDataTmp;
+            if (CheckFrameDataCrc(frameTmp, rawFrameData.size(), &frameDataTmp) == 0) {
 
+                qDebug("the follow data is~~~~~~~~~~~~~~~~~~~");
+                for (int j = 0; j < rawFrameData.size() - 10; j++) {
+
+                    qDebug("small data[%d] is 0x%02x %c", j, 0xff & frameDataTmp.p[j], frameDataTmp.p[j]);
+                }
+                qDebug("crc here 0x%x", frameDataTmp.crc);
+            } else {
+                qDebug("error crc or head here 0x%x", frameDataTmp.crc);
+
+            }
+
+        }
+        */
         QDateTime time = QDateTime::currentDateTime();
         qDebug() << "~~~~~~~~~send quit here~~~" +otherRecString + time.toLocalTime().toString("yyyy-MM-dd hh:mm:ss ddd");
 
-        otherRecString = "";
-        //::Sleep(1000);
         if (needToEmitFlag == 1) {
             emit ReceiveMisString();
         }
+
+        //回送数据给客户端
+        RawDealFrameData(otherRecString);
+
+
+        otherRecString = "";
+        //::Sleep(1000);
+
+    }
+
+    //串口模式时,不等待回复的数据
+    if (ui->checkBox_serialMode->checkState() == Qt::Checked) {
+        emit ReceiveMisString();
     }
     //
 
     //qDebug() << "tooooo";
 
 
+     /*
 
+    if (otherRecString.trimmed().toLower().indexOf("OK") >= 0) {
+        qDebug() << "get ok here~~~~~~~~~~~";
+    }
+
+*/
 
 
     lastCmd = nowCmd;
 }
-void  MainWindow::slot_newDataReceived(const QByteArray &dataReceived)
+void  MainWindow::slot_newDataReceived(const QByteArray dataReceived)
 {
 
     //串口关闭时不接受显示,避免应用程序无响应
@@ -760,7 +819,7 @@ void MainWindow::on_pushButton_manualSend_clicked()
                 //sprintf(buf2, "%cx%02X", "\\",buf1);//x控制大小写
 
                 buf2[i/2] = buf1;
-                //qDebug("%x %d", buf2[i/2], i);
+                qDebug("%x %d", buf2[i/2], i);
                 tmp += QString(buf2[i/2]);
             }
             Message = tmp;
@@ -789,7 +848,8 @@ void MainWindow::on_pushButton_manualSend_clicked()
         //            qDebug("send:%x", p[i]);
         //            //qDebug("send1:%x", temp.at(i));
         //        }
-        AddToMsgEnd(temp.data(), DEFAULT_RECEIVE_TIMEOUT);
+        qDebug("temp sie is %d", temp.size());
+        AddToMsgEnd(temp.data(), temp.size(), DEFAULT_RECEIVE_TIMEOUT);
         ////RawSendData(temp);
 
 
@@ -803,7 +863,10 @@ void MainWindow::on_pushButton_manualSend_clicked()
 
 void MainWindow::RawSendData(QByteArray temp)
 {
+    for (int i = 0; i < temp.size(); i++) {
+        qDebug("send %d  0x%02x", i, 0xff & temp.at(i));
 
+    }
 
     nowCmd = QString(temp);
 
@@ -820,7 +883,13 @@ void MainWindow::RawSendData(QByteArray temp)
     txNum += temp.size();
     ui->lineEdit_txSize->setText("TX:" + QString::number(txNum));
 
-    textEditSend->setText(QString(temp));//加入"\r"无法写入
+    //不用再发送去显示发送的数据
+    if (ui->checkBox_serialMode->checkState() == Qt::Checked) {
+
+        ;
+    } else {
+        textEditSend->setText(QString(temp));//加入"\r"无法写入
+    }
     //    //textEditSend->setText(QString(QByteArray::fromRawData(temp.data(), temp.size)));
     //    //textEditSend->setText("\r\n");
     //    textEditSend->set;
@@ -927,7 +996,7 @@ void MainWindow::on_pushButton_connectAp_clicked()
     QByteArray tmp = QString(buf).toLatin1();//为1不是L
 
     delayDealStringTime = 10000;//10s
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(), DEFAULT_RECEIVE_TIMEOUT);
     ////RawSendData(tmp);
 }
 
@@ -935,7 +1004,7 @@ void MainWindow::on_pushButton_restart_clicked()
 {
 
     QByteArray tmp = QString(RESTART_DEVICE).toLatin1();//为1不是L
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(), DEFAULT_RECEIVE_TIMEOUT);
     ////RawSendData(tmp);
 }
 
@@ -1071,6 +1140,7 @@ void MainWindow::on_pushButton_help_clicked()
     ui->textEdit_recZone->insertPlainText("自动发送周期最少为10ms\r\n");
     ui->textEdit_recZone->insertPlainText("打开串口后自动将焦点至于发送区\r\n");
     ui->textEdit_recZone->insertPlainText("选上自动发送，选上发送完自动清空，并设置自动发送周期为10ms，可以达到实时发送的要求\r\n");
+    ui->textEdit_recZone->insertPlainText("选上串口模式时,为非模块模式，可作为正常的串口软件使用\r\n");
     ui->textEdit_recZone->insertPlainText("\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\tauthor:haozi\r\n");
     ui->textEdit_recZone->insertPlainText("\t\t\t\t\tEmail:haozi_winged@163.com\r\n");
     ui->textEdit_recZone->insertPlainText("\t\t\t\t\tData:2015/02/17\r\n");
@@ -1083,56 +1153,56 @@ void MainWindow::on_pushButton_listAp_clicked()
 {
     delayDealStringTime = 8000;//延时8s后再统一处理接收到的数据
     QByteArray tmp = QString(LIST_CURRENT_AP).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     ////RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_querySelfIp_clicked()
 {
     QByteArray tmp = QString(GET_SELF_IP).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_currentMode_clicked()
 {
     QByteArray tmp = QString(QUERY_MODE).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_queryConnectAp_clicked()
 {
     QByteArray tmp = QString(JOIN_WHICH_AP).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_listConnectIp_clicked()
 {
     QByteArray tmp = QString(LIST_CONNECT_IP).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_setApMode_clicked()
 {
     QByteArray tmp = QString(SETMODE_AP).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_setStation_clicked()
 {
     QByteArray tmp = QString(SETMODE_STATION).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_setApStation_clicked()
 {
     QByteArray tmp = QString(SETMODE_AP_STATION).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 }
@@ -1141,7 +1211,7 @@ void MainWindow::on_pushButton_closeTcp_clicked()
 {
 
     QByteArray tmp = QString(TCP_UDP_CLOSE).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
     ui->label_ipStatus->setStyleSheet("background-color: black");
 }
@@ -1160,7 +1230,7 @@ void MainWindow::on_pushButton_connectDstIp_clicked()
 
     //必须在mux=0的情况下
     QByteArray tmp = QString(MUL_LINK0).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
     //::Sleep(2*1000);//单位毫秒
@@ -1173,7 +1243,7 @@ void MainWindow::on_pushButton_connectDstIp_clicked()
     TcpConnectServer(buf, connectIp, serverPort);
     tmp = QString(buf).toLatin1();//为1不是L
     delayDealStringTime = 5000;
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 }
@@ -1181,7 +1251,7 @@ void MainWindow::on_pushButton_connectDstIp_clicked()
 void MainWindow::on_pushButton_checkTcpUdpStatus_clicked()
 {
     QByteArray tmp = QString(TCP_UDP_STATUS).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
@@ -1205,7 +1275,7 @@ void MainWindow::on_pushButton_setAp_clicked()
     QByteArray tmp = QString(buf).toLatin1();//为1不是L
 
     delayDealStringTime = 5000;
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
@@ -1220,7 +1290,7 @@ void MainWindow::on_pushButton_setServer_clicked()
 
     //设置多路链接  单路链接为0也可以？设置完后重新设为0?
     QByteArray tmp = QString(MUL_LINK1).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
     //::Sleep(2*1000);//单位毫秒
@@ -1231,7 +1301,7 @@ void MainWindow::on_pushButton_setServer_clicked()
     SetServerPort(buf, setSelfIp, setSelfPort);
     tmp = QString(buf).toLatin1();
     delayDealStringTime = 5000;
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 
@@ -1240,27 +1310,37 @@ void MainWindow::on_pushButton_setServer_clicked()
 
 void MainWindow::on_pushButton_testSend_clicked()
 {
-    //char buf[100];
+    char buf[100];
     char str[100];
 
     QByteArray tmp;
+
+
+
+
+    //设置要发送的数据大小及哪个连接
+    int linkId = ui->comboBox_linkId->currentIndex();
+    //str = ui->lineEdit_testSend->text().toLatin1().data();
+    strcpy(str, ui->lineEdit_testSend->text().toLatin1().data());
+    ServerPassSendString(buf, linkId, strlen(str));
+    qDebug() << buf;
+    tmp = QString(buf).toLatin1();
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
+
+
+
+
+
+
+
 
     //设置要发送的数据大小及哪个连接
     //int linkId = ui->comboBox_linkId->currentIndex();
     //str = ui->lineEdit_testSend->text().toLatin1().data();
     strcpy(str, ui->lineEdit_testSend->text().toLatin1().data());
-
-    //ServerPassSendString(buf, linkId, str);
-    //qDebug() << buf;
-    //tmp = QString(buf).toLatin1();
-
-
-    /*延时1s后发送,等待出现">"时再发送*/
-    //::Sleep(1*1000);//单位毫秒
-
     //发送数据
     tmp = QString(str).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 
@@ -1276,10 +1356,10 @@ void MainWindow::on_pushButton_sendNum_clicked()
     int linkId = ui->comboBox_linkId->currentIndex();
     //str = ui->lineEdit_testSend->text().toLatin1().data();
     strcpy(str, ui->lineEdit_testSend->text().toLatin1().data());
-    ServerPassSendString(buf, linkId, str);
+    ServerPassSendString(buf, linkId, strlen(str));
     qDebug() << buf;
     QByteArray tmp = QString(buf).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
@@ -1293,7 +1373,7 @@ void MainWindow::on_pushButton_setServerTimeout_clicked()
     sprintf(buf, "AT+CIPSTO=%d\r\n", timeOut);
 
     QByteArray tmp = QString(buf).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
@@ -1306,7 +1386,7 @@ void MainWindow::on_pushButton_sendNumSingle_clicked()
     strcpy(str, ui->lineEdit_testSendSingle->text().toLatin1().data());
     NonePassSendString(buf, str);
     QByteArray tmp = QString(buf).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 }
@@ -1320,7 +1400,7 @@ void MainWindow::on_pushButton_inqueryServerTimeout_clicked()
     sprintf(buf, "AT+CIPSTO?\r\n");
 
     QByteArray tmp = QString(buf).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
@@ -1335,21 +1415,22 @@ void MainWindow::on_pushButton_closeTcpMux_clicked()
 
 
     QByteArray tmp = QString(buf).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_setSingleLink_clicked()
 {
     QByteArray tmp = QString(MUL_LINK0).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_setMuxLink_clicked()
 {
-    QByteArray tmp = QString(MUL_LINK1).toLatin1();
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    QByteArray tmp = QString(MUL_LINK1).toLatin1();//13
+    qDebug("mul link1 size is %d", tmp.size());
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 
 }
@@ -1369,11 +1450,205 @@ void MainWindow::on_pushButton_transparentOrNone_clicked()
         ui->pushButton_transparentOrNone->setText("透传模式");
     }
 
-    AddToMsgEnd(tmp.data(), DEFAULT_RECEIVE_TIMEOUT);
+    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
     //RawSendData(tmp);
 }
 
 void MainWindow::on_pushButton_sendSignal_clicked()
 {
+    otherRecString = "";
     emit ReceiveMisString();
+}
+
+void MainWindow::on_pushButton_sendXieYi_clicked()
+{
+    //    char buf[100];
+
+    //    QByteArray tmp;
+    //    char send[10] = {0x1, 0x0, 0x3, 0x4};
+
+    //    tmp = QByteArray::fromRawData(send, 4);
+
+
+    //    //设置要发送的数据大小及哪个连接
+    int linkId = ui->comboBox_linkId->currentIndex();
+
+
+    //    ServerPassSendString(buf, linkId, tmp.size());
+    //    qDebug() << buf;
+    //    //tmp = QByteArray::fromRawData(send, 4);
+    //    //tmp = QString(buf).toLatin1();
+    //    AddToMsgEnd(buf, strlen(buf),  DEFAULT_RECEIVE_TIMEOUT);
+
+
+
+    //    //发送数据
+    //    //tmp = QByteArray(send);
+    //    //tmp = QByteArray::fromRawData(send, 4);
+    //    qDebug("tmp size is %d", tmp.size());
+    //    AddToMsgEnd(tmp.data(), tmp.size(),  DEFAULT_RECEIVE_TIMEOUT);
+
+
+
+    //RawSendData(tmp);
+    char sendData[100] = {0x1, 0x0, 0x31, 0x32};
+    int len;
+    len = 4;
+    if (DealFrameData(sendData, &len) == 0) {
+        SendFrameData(sendData, len, linkId);
+    } else {
+        SendFrameData(sendData, 4, linkId);
+    }
+
+
+}
+
+
+void MainWindow::SendFrameData(char *sendData, int sendSize, int linkId)
+{
+    char buf[100] = {0};
+    //设置要发送的数据大小及哪个连接
+    sprintf(buf, "AT+CIPSEND=%d,%d\r\n", linkId, sendSize);
+    qDebug() << buf;
+    AddToMsgEnd(buf, strlen(buf),  DEFAULT_RECEIVE_TIMEOUT);
+
+    AddToMsgEnd(sendData, sendSize,  DEFAULT_RECEIVE_TIMEOUT);
+
+
+}
+
+
+void MainWindow::RawDealFrameData(QByteArray otherRecString) {
+
+
+
+    //接受帧处理+IPD
+    if ((otherRecString.trimmed().toLower().indexOf("+ipd,") >= 0) && (otherRecString.trimmed().indexOf("OK") >= 0)) {
+        qDebug() << "get data here";
+
+        //"+IPD,0,24:"
+        int startLinkId = otherRecString.trimmed().toLower().indexOf("+ipd");
+        QByteArray num = otherRecString.mid(startLinkId + 5);
+        int linkId = atoi(num.data());
+        qDebug("link Id is %d index is %d", linkId, startLinkId);
+        //+IPD,0,14:send to server
+
+        for (int i = 0; i < otherRecString.size(); i++) {
+            qDebug("frame2 data[%d] is 0x%02x  %c", i, 0xff & otherRecString.at(i), otherRecString.at(i));
+
+        }
+        //OK
+        int indexStart = otherRecString.indexOf(":");//trim 改变了字符位置
+        int indexEnd = otherRecString.indexOf("\r\nOK");
+        QByteArray rawFrameData = otherRecString.mid(indexStart + 1, indexEnd - indexStart - 1);
+        for (int i = 0; i < rawFrameData.size(); i++) {
+            qDebug("frame data[%d] is 0x%02x  %c", i, 0xff & rawFrameData.at(i), rawFrameData.at(i));
+
+        }
+        char frameTmp[256] = {0};
+        memcpy(frameTmp, rawFrameData.data(), rawFrameData.size());
+        frameData frameDataTmp;
+        if (CheckFrameDataCrc(frameTmp, rawFrameData.size(), &frameDataTmp) == 0) {
+
+            qDebug("the follow data is");
+            int frameDataSize = rawFrameData.size() - 10;
+            for (int j = 0; j < frameDataSize; j++) {
+
+                qDebug("small data[%d] is 0x%02x %c", j, 0xff & frameDataTmp.p[j], frameDataTmp.p[j]);
+            }
+            qDebug("crc here 0x%x", frameDataTmp.crc);
+
+            ControlFrameData(frameDataTmp.p, frameDataSize);
+
+            ReturnStringToClient("ok", 2, linkId);
+        } else {
+            qDebug("error crc or head here 0x%x", frameDataTmp.crc);
+            ReturnStringToClient("fail", 4, linkId);
+
+        }
+
+
+    } else {
+        qDebug() << "not deal";
+
+    }
+//    if (otherRecString.trimmed().toLower().indexOf("ok") >= 0) {
+//        qDebug () << "get ok here";
+
+//    }
+
+//    QByteArray tmp = otherRecString.trimmed().toLower();
+//    //qDebug() <<tmp.size();
+//    for (int i = 0; i < tmp.size(); i++) {
+//        qDebug("string[%d] is 0x%02x, %c", i, 0xff & tmp.at(i), tmp.at(i));
+
+//    }
+
+
+}
+
+void MainWindow::ReturnStringToClient(char *buf, unsigned int size, int linkId) {
+    char s[256] = {0};
+    int len = size;
+
+    memcpy(s, buf, size);
+
+    if (DealFrameData((char*)s, &len) == 0) {
+        for (int i = 0; i < len; i++) {
+            qDebug("s frameData[%d] is 0x%02x", i, 0xff & s[i]);
+
+        }
+        //QByteArray recordTmp = QByteArray::fromRawData(s, len);
+        SendFrameData(s, len, linkId);
+
+    }
+
+
+}
+void MainWindow::DealLedHere(unsigned char *p) {
+
+    if (p[0] == 1) {
+        ui->label_led1->setStyleSheet("background-color: green");
+    } else if (p[0] == 0) {
+        ui->label_led1->setStyleSheet("background-color: red");
+    }
+
+    if (p[1] == 1) {
+        ui->label_led2->setStyleSheet("background-color: green");
+    } else if (p[1] == 0) {
+        ui->label_led2->setStyleSheet("background-color: red");
+    }
+
+    if (p[2] == 1) {
+        ui->label_led3->setStyleSheet("background-color: green");
+    } else if (p[2] == 0) {
+        ui->label_led3->setStyleSheet("background-color: red");
+    }
+
+    if (p[3] == 1) {
+        ui->label_led4->setStyleSheet("background-color: green");
+    } else if (p[3] == 0) {
+        ui->label_led4->setStyleSheet("background-color: red");
+    }
+
+    if (p[4] == 1) {
+        ui->label_led5->setStyleSheet("background-color: green");
+    } else if (p[4] == 0) {
+        ui->label_led5->setStyleSheet("background-color: red");
+    }
+
+
+}
+void MainWindow::ControlFrameData(char *p, int len) {
+    unsigned char *buf = (unsigned char *)p;
+    switch (buf[0]) {
+    case 0x0c:
+        if (buf[1] == 0x01) {
+            DealLedHere(&buf[2]);
+        }
+        break;
+    default:
+        break;
+    }
+
 }

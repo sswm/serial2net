@@ -243,7 +243,7 @@ public:
     void stopReceiving();
 
 signals:
-    void newDataReceived(const QByteArray &dataReceived);
+    void newDataReceived(const QByteArray dataReceived);
 
 private:
     //Variables privees

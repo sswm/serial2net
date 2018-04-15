@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>11</x>
-      <y>430</y>
+      <y>440</y>
       <width>871</width>
       <height>121</height>
      </rect>
@@ -129,7 +129,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>550</y>
+      <y>560</y>
       <width>871</width>
       <height>63</height>
      </rect>
@@ -244,7 +244,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>610</y>
+      <y>620</y>
       <width>871</width>
       <height>81</height>
      </rect>
@@ -269,7 +269,7 @@
        <item>
         <widget class="QLineEdit" name="lineEdit_connectSSID">
          <property name="text">
-          <string>Lee</string>
+          <string>TP-LINK_9</string>
          </property>
         </widget>
        </item>
@@ -283,7 +283,7 @@
        <item>
         <widget class="QLineEdit" name="lineEdit_connectPwd">
          <property name="text">
-          <string>6293687wojia.</string>
+          <string>12345678</string>
          </property>
         </widget>
        </item>
@@ -501,7 +501,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>880</y>
+      <y>890</y>
       <width>871</width>
       <height>27</height>
      </rect>
@@ -668,7 +668,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>730</y>
+      <y>740</y>
       <width>871</width>
       <height>41</height>
      </rect>
@@ -759,7 +759,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>910</y>
+      <y>920</y>
       <width>601</width>
       <height>117</height>
      </rect>
@@ -872,7 +872,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>850</y>
+      <y>860</y>
       <width>871</width>
       <height>27</height>
      </rect>
@@ -989,7 +989,7 @@
     <property name="geometry">
      <rect>
       <x>620</x>
-      <y>920</y>
+      <y>930</y>
       <width>93</width>
       <height>25</height>
      </rect>
@@ -1014,7 +1014,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>690</y>
+      <y>700</y>
       <width>871</width>
       <height>31</height>
      </rect>
@@ -1078,7 +1078,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>770</y>
+      <y>780</y>
       <width>871</width>
       <height>81</height>
      </rect>
@@ -1117,7 +1117,7 @@
        <item>
         <widget class="QLineEdit" name="lineEdit_setSelfPort">
          <property name="text">
-          <string>6000</string>
+          <string>5001</string>
          </property>
         </widget>
        </item>
@@ -1248,9 +1248,9 @@
    <widget class="QLabel" name="label_time">
     <property name="geometry">
      <rect>
-      <x>620</x>
-      <y>970</y>
-      <width>281</width>
+      <x>630</x>
+      <y>980</y>
+      <width>231</width>
       <height>21</height>
      </rect>
     </property>
@@ -1890,13 +1890,6 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="label_recZone">
-             <property name="text">
-              <string>     接收区</string>
-             </property>
-            </widget>
-           </item>
            <item row="3" column="0">
             <widget class="QPushButton" name="pushButton_saveData">
              <property name="minimumSize">
@@ -1993,6 +1986,13 @@
              </property>
             </widget>
            </item>
+           <item row="0" column="1">
+            <widget class="QCheckBox" name="checkBox_serialMode">
+             <property name="text">
+              <string>串口模式</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
          <item>
@@ -2019,7 +2019,7 @@ p, li { white-space: pre-wrap; }
     <property name="geometry">
      <rect>
       <x>760</x>
-      <y>920</y>
+      <y>930</y>
       <width>93</width>
       <height>25</height>
      </rect>
@@ -2040,6 +2040,289 @@ p, li { white-space: pre-wrap; }
      <string>发送信号</string>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_sendXieYi">
+    <property name="geometry">
+     <rect>
+      <x>760</x>
+      <y>990</y>
+      <width>93</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>0</width>
+      <height>25</height>
+     </size>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>16777215</width>
+      <height>25</height>
+     </size>
+    </property>
+    <property name="text">
+     <string>发送协议</string>
+    </property>
+   </widget>
+   <widget class="QWidget" name="layoutWidget">
+    <property name="geometry">
+     <rect>
+      <x>430</x>
+      <y>420</y>
+      <width>105</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <layout class="QHBoxLayout" name="horizontalLayout_15">
+     <item>
+      <widget class="QLabel" name="label_led1">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="baseSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(0, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_led2">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="baseSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(0, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_led3">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="baseSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(0, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_led4">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="baseSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(0, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="label_led5">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>15</width>
+         <height>15</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="baseSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="layoutDirection">
+        <enum>Qt::LeftToRight</enum>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-color: rgb(0, 0, 0);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+       <property name="wordWrap">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+   <zorder>layoutWidget</zorder>
    <zorder>layoutWidget</zorder>
    <zorder>layoutWidget</zorder>
    <zorder>layoutWidget</zorder>
@@ -2053,6 +2336,7 @@ p, li { white-space: pre-wrap; }
    <zorder>layoutWidget</zorder>
    <zorder>label_time</zorder>
    <zorder>pushButton_sendSignal</zorder>
+   <zorder>pushButton_sendXieYi</zorder>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>

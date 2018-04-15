@@ -393,7 +393,7 @@ void ManageSerialPort::enableReceiving()
 	if (!receivingEnabled && threadReceive == NULL) //Si la reception n'est pas active && si threadReceive n'est pas alloue
 	{
 		threadReceive = new ThreadReceive(extSerialPort);
-		connect(threadReceive, SIGNAL(newDataReceived(const QByteArray &)), this, SIGNAL(newDataReceived(const QByteArray &)));
+        connect(threadReceive, SIGNAL(newDataReceived(const QByteArray )), this, SIGNAL(newDataReceived(const QByteArray )));
 		receivingEnabled = true;
 	}
 }

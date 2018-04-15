@@ -23,7 +23,8 @@ SOURCES += main.cpp\
     crc32/crc32.c \
     md5/md5.c \
     UserFile/uartWifi.c \
-    thread/qSendSerial.cpp
+    thread/qSendSerial.cpp \
+    frameData/frameData.c
 
 HEADERS  += mainwindow.h \
     SerialPort/ManageSerialPort.h \
@@ -34,7 +35,8 @@ HEADERS  += mainwindow.h \
     md5/md5.h \
     UserFile/uartWifi.h \
     link/list.h \
-    thread/qSendSerial.h
+    thread/qSendSerial.h \
+    frameData/frameData.h
 
 FORMS    += mainwindow.ui
 

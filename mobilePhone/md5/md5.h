@@ -1,5 +1,5 @@
 #ifndef __MD5_H
-#define __MD5_H
+#define __MD5_h
 
 
 

@@ -112,16 +112,13 @@ char *NonePassSendString(char *buf, char *str) {
 }
 
 
-char *ServerPassSendString(char *buf, int linkId, char *str) {
+char *ServerPassSendString(char *buf, int linkId, int size) {
 
 
-    if((str == NULL)|| (strlen(str) == 0)) {
-        return GetError;
-    }
 
 
     //NowCommand("AT+CIPSEND=0,5\r\n");
-    sprintf(buf, "AT+CIPSEND=%d,%d\r\n", linkId, strlen(str));
+    sprintf(buf, "AT+CIPSEND=%d,%d\r\n", linkId, size);
 
     return buf;
 }

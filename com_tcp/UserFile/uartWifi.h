@@ -160,7 +160,7 @@ char *TcpConnectServer(char *buf, char *ip, unsigned int port);
 
 char *NonePassSendString(char *buf, char *str);
 
-char *ServerPassSendString(char *buf, int linkId, char *str);
+char *ServerPassSendString(char *buf, int linkId, int size);
 
 
 

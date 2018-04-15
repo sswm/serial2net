@@ -44,6 +44,7 @@ extern QMutex   linkMutex;
 typedef struct postMsg {
     unsigned int timeout;
     char buf[ONE_FRAME_SIZE];
+    int bufSize;
     struct list_head list;
 
 }postLinked;
@@ -80,9 +81,13 @@ public:
     void DealAfterSend(QByteArray dataReceived);
     void RawDealRecDepCmd(void);
     void SwitchCmd(int resultStatus);
-    int AddToMsgEnd(char *str, unsigned int timeout);
-    int GetFromMsgStart(char *str, int *timeout);
+    int AddToMsgEnd(char *str, int size, unsigned int timeout);
+    int GetFromMsgStart(char *str, int *timeout, int *size);
     void DeviceInit(void);
+    void RawDealFrameData(QByteArray otherRecString);
+    void ReturnStringToClient(char *buf, unsigned int size, int linkId);
+    void ControlFrameData(char *p, int len);
+    void DealLedHere(unsigned char *p);
 public:
 
     QString nowCmd;//当前发送给串口的命令
@@ -109,7 +114,7 @@ public:
     unsigned int delayDealStringTime;//发送命令延时时间
     QString allRecString;
 
-    QString otherRecString;
+    QByteArray otherRecString;
 
 
 
@@ -154,7 +159,7 @@ public slots:
 
     void on_pushButton_openClose_clicked();
     //SerialPort
-    void slot_newDataReceived(const QByteArray &dataReceived);
+    void slot_newDataReceived(const QByteArray dataReceived);
     void on_pushButton_sendFile_clicked();
 
     void on_pushButton_manualSend_clicked();
@@ -233,9 +238,11 @@ public slots:
     void ShowSystemTime();
 
     void on_pushButton_transparentOrNone_clicked();
+    void SendFrameData(char *buf, int sendSize, int linkId);
 
-private slots:
     void on_pushButton_sendSignal_clicked();
+
+    void on_pushButton_sendXieYi_clicked();
 
 private:
     Ui::MainWindow *ui;

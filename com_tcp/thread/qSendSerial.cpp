@@ -53,7 +53,7 @@ void QSendSerial::run()
 {
     char bufTmp[ONE_FRAME_SIZE];
     int timeout;
-
+    int rawSize;
 
     ::Sleep(2000);
 
@@ -85,11 +85,11 @@ void QSendSerial::run()
     while(1) {
         //
 
-        if (w->GetFromMsgStart(bufTmp, &timeout) != -1) {
+        if (w->GetFromMsgStart(bufTmp, &timeout, &rawSize) != -1) {
             qDebug("Command:%s:end", bufTmp);
             //w->RawSendData(bufTmp);
             needToEmitFlag = 1;//为1的情况下,才能发送emit
-            emit  TryToSendData(QByteArray(bufTmp));//让主线程来发送数据
+            emit  TryToSendData(QByteArray::fromRawData(bufTmp, rawSize));//让主线程来发送数据
             //receiveTimeoutTimer->stop();
             //QTimer::singleShot(0, receiveTimeoutTimer,SLOT(stop()));
             //timeout *= 1000;
